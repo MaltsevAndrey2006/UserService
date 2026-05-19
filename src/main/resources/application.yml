@@ -5,3 +5,13 @@ spring:
     username: ${DB_USERNAME}
   liquibase:
     change-log: classpath:/db/changelog/migrations.xml
+  data:
+    redis:
+      host: ${CACHE_HOST}
+      port: ${CACHE_PORT}
+  cache:
+    type: redis
+logging:
+  level:
+    org.springframework.data.redis: DEBUG
+    io.lettuce.core: DEBUG

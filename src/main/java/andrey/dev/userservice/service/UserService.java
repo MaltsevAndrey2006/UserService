@@ -11,6 +11,9 @@ import andrey.dev.userservice.mapper.UserResponseMapper;
 import andrey.dev.userservice.repository.UserRepository;
 import andrey.dev.userservice.repository.specification.UserSpecifications;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -29,6 +32,7 @@ public class UserService {
     private final UserRequestMapper userRequestMapper;
     private final UserResponseMapper userResponseMapper;
 
+    @CachePut(value = "users", key = "#result.id")
     public UserResponse saveUser(UserRequest userRequest) {
         return Optional.ofNullable(userRequest)
                 .map(userRequestMapper::toUser)
@@ -36,6 +40,7 @@ public class UserService {
                 .map(userResponseMapper::toUserResponse).orElseThrow(UserCreatingException::new);
     }
 
+    @CacheEvict(value = "users", key = "#id")
     @Transactional
     public void updateUser(UserRequest userRequest, Long id) {
         if (userRequest == null) {
@@ -54,6 +59,7 @@ public class UserService {
         }
     }
 
+    @CacheEvict(value = "users", key = "#id")
     @Transactional
     public void activateUser(Long id) {
 
@@ -64,6 +70,7 @@ public class UserService {
         userRepository.activateUser(id);
     }
 
+    @CacheEvict(value = "users", key = "#id")
     @Transactional
     public void deactivateUser(Long id) {
         if (!userRepository.existsById(id)) {
@@ -72,10 +79,11 @@ public class UserService {
         userRepository.deactivateUser(id);
     }
 
+    @Cacheable(value = "users", key = "#id")
     public UserResponse getUserById(Long id) {
         return userRepository.findById(id)
                 .map(userResponseMapper::toUserResponse)
-                .orElseThrow(RuntimeException::new);
+                .orElseThrow(() -> new UserNotFoundException("no user with id :" + id));
     }
 
     public Page<UserResponse> getAllUsers(String firstName, String surName, Pageable pageable) {
@@ -95,6 +103,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = "users", key = "#id")
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException("User not found with id: " + id);

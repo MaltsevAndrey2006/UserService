@@ -8,3 +8,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "${DB_PORT}:5432"
+  cache:
+    image: redis
+    restart: always
+    ports:
+      - "${CACHE_PORT}:6379"
