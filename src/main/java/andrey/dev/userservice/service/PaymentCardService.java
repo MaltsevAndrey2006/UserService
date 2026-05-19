@@ -3,6 +3,7 @@ package andrey.dev.userservice.service;
 import andrey.dev.userservice.entity.User;
 import andrey.dev.userservice.entity.dto.PaymentCardRequest;
 import andrey.dev.userservice.entity.dto.PaymentCardResponse;
+import andrey.dev.userservice.exception.exceptions.*;
 import andrey.dev.userservice.mapper.PaymentCardRequestMapper;
 import andrey.dev.userservice.mapper.PaymentCardResponseMapper;
 import andrey.dev.userservice.repository.PaymentCardRepository;
@@ -26,18 +27,18 @@ public class PaymentCardService {
 
     public PaymentCardResponse savePaymentCard(PaymentCardRequest paymentCardRequest) {
         User user = userRepository.findById(paymentCardRequest.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + paymentCardRequest.getUserId()));
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + paymentCardRequest.getUserId()));
 
         Long cardCount = paymentCardRepository.countByUserId(user.getId());
         if (cardCount >= 5) {
-            throw new RuntimeException("User cannot have more than 5 cards");
+            throw new PaymentCardsCountException("User cannot have more than 5 cards");
         }
 
         return Optional.ofNullable(paymentCardRequest)
                 .map(request -> paymentCardRequestMapper.toPaymentCard(request, user))
                 .map(paymentCardRepository::save)
                 .map(paymentCardResponseMapper::toPaymentCardResponse)
-                .orElseThrow(() -> new RuntimeException("Failed to create payment card"));
+                .orElseThrow(() -> new PaymentCardCreatingException("Failed to create payment card"));
     }
 
     public Page<PaymentCardResponse> getAllPaymentCards(Pageable pageable) {
@@ -45,7 +46,7 @@ public class PaymentCardService {
     }
 
     public PaymentCardResponse getPaymentCardById(Long id) {
-        return paymentCardRepository.findById(id).map(paymentCardResponseMapper::toPaymentCardResponse).orElseThrow(RuntimeException::new);
+        return paymentCardRepository.findById(id).map(paymentCardResponseMapper::toPaymentCardResponse).orElseThrow(PaymentCardNotFoundException::new);
     }
 
     @Transactional
@@ -53,7 +54,7 @@ public class PaymentCardService {
         if (paymentCardRepository.existsById(id)) {
             paymentCardRepository.deleteById(id);
         } else {
-            throw new RuntimeException("Payment card not found with id: " + id);
+            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
         }
     }
 
@@ -61,14 +62,14 @@ public class PaymentCardService {
     public void updatePaymentCardById(Long id, PaymentCardRequest paymentCardRequest) {
         if (paymentCardRepository.existsById(id)) {
             User user = userRepository.findById(paymentCardRequest.getUserId())
-                    .orElseThrow(() -> new RuntimeException("User not found with id: " + paymentCardRequest.getUserId()));
+                    .orElseThrow(() -> new UserNotFoundException("User not found with id: " + paymentCardRequest.getUserId()));
 
             int changes = paymentCardRepository.updatePaymentCard(paymentCardRequestMapper.toPaymentCard(paymentCardRequest, user), id);
             if (changes <= 0) {
-                throw new RuntimeException("Failed to update payment card");
+                throw new PaymentCardUpdateException("Failed to update payment card");
             }
         } else {
-            throw new RuntimeException("Payment card not found with id: " + id);
+            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
         }
     }
 
@@ -77,7 +78,7 @@ public class PaymentCardService {
         if (paymentCardRepository.existsById(id)) {
             paymentCardRepository.activatePaymentCard(id);
         } else {
-            throw new RuntimeException("Payment card not found with id: " + id);
+            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
         }
     }
 
@@ -86,7 +87,7 @@ public class PaymentCardService {
         if (paymentCardRepository.existsById(id)) {
             paymentCardRepository.deactivatePaymentCard(id);
         } else {
-            throw new RuntimeException("Payment card not found with id: " + id);
+            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
         }
     }
 

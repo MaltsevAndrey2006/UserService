@@ -3,6 +3,9 @@ package andrey.dev.userservice.service;
 import andrey.dev.userservice.entity.User;
 import andrey.dev.userservice.entity.dto.UserRequest;
 import andrey.dev.userservice.entity.dto.UserResponse;
+import andrey.dev.userservice.exception.exceptions.UserCreatingException;
+import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
+import andrey.dev.userservice.exception.exceptions.UserUpdateException;
 import andrey.dev.userservice.mapper.UserRequestMapper;
 import andrey.dev.userservice.mapper.UserResponseMapper;
 import andrey.dev.userservice.repository.UserRepository;
@@ -30,7 +33,7 @@ public class UserService {
         return Optional.ofNullable(userRequest)
                 .map(userRequestMapper::toUser)
                 .map(userRepository::save)
-                .map(userResponseMapper::toUserResponse).orElseThrow(IllegalArgumentException::new);
+                .map(userResponseMapper::toUserResponse).orElseThrow(UserCreatingException::new);
     }
 
     @Transactional
@@ -39,7 +42,7 @@ public class UserService {
             throw new IllegalArgumentException("userRequest cannot be null");
         }
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new UserNotFoundException("User not found with id: " + id);
         }
 
         User user = userRequestMapper.toUser(userRequest);
@@ -47,7 +50,7 @@ public class UserService {
         int updatedRows = userRepository.updateUser(user, id);
 
         if (updatedRows <= 0) {
-            throw new RuntimeException("User update failed");
+            throw new UserUpdateException("User update failed");
         }
     }
 
@@ -55,7 +58,7 @@ public class UserService {
     public void activateUser(Long id) {
 
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new UserNotFoundException("User not found with id: " + id);
         }
 
         userRepository.activateUser(id);
@@ -64,7 +67,7 @@ public class UserService {
     @Transactional
     public void deactivateUser(Long id) {
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new UserNotFoundException("User not found with id: " + id);
         }
         userRepository.deactivateUser(id);
     }
@@ -94,7 +97,7 @@ public class UserService {
     @Transactional
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new UserNotFoundException("User not found with id: " + id);
         }
 
         userRepository.deleteById(id);
