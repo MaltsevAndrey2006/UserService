@@ -1,6 +1,6 @@
 services:
   user_db:
-    image: postgres
+    image: postgres:15
     container_name: postgres_user_db
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -8,8 +8,48 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   cache:
-    image: redis
+    image: redis:7-alpine
+    container_name: redis_user_cache
     restart: always
     ports:
       - "${CACHE_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: user_service_app
+    depends_on:
+      user_db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    environment:
+      SPR_PROFILE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user_db:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: cache
+      SPRING_DATA_REDIS_PORT: ${CACHE_PORT}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
