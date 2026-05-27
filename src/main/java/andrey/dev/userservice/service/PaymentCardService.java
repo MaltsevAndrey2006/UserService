@@ -1,14 +1,23 @@
 package andrey.dev.userservice.service;
 
+import andrey.dev.userservice.entity.PaymentCard;
 import andrey.dev.userservice.entity.User;
 import andrey.dev.userservice.entity.dto.PaymentCardRequest;
 import andrey.dev.userservice.entity.dto.PaymentCardResponse;
-import andrey.dev.userservice.exception.exceptions.*;
+import andrey.dev.userservice.exception.exceptions.PaymentCardCreatingException;
+import andrey.dev.userservice.exception.exceptions.PaymentCardNotFoundException;
+import andrey.dev.userservice.exception.exceptions.PaymentCardsCountException;
+import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
 import andrey.dev.userservice.mapper.PaymentCardRequestMapper;
 import andrey.dev.userservice.mapper.PaymentCardResponseMapper;
 import andrey.dev.userservice.repository.PaymentCardRepository;
 import andrey.dev.userservice.repository.UserRepository;
+import andrey.dev.userservice.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,7 +33,9 @@ public class PaymentCardService {
     private final PaymentCardResponseMapper paymentCardResponseMapper;
     private final PaymentCardRequestMapper paymentCardRequestMapper;
     private final UserRepository userRepository;
+    private final UserUtils userUtils;
 
+    @CachePut(value = "users", key = "#result.userId")
     public PaymentCardResponse savePaymentCard(PaymentCardRequest paymentCardRequest) {
         User user = userRepository.findById(paymentCardRequest.getUserId())
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + paymentCardRequest.getUserId()));
@@ -34,7 +45,7 @@ public class PaymentCardService {
             throw new PaymentCardsCountException("User cannot have more than 5 cards");
         }
 
-        return Optional.ofNullable(paymentCardRequest)
+        return Optional.of(paymentCardRequest)
                 .map(request -> paymentCardRequestMapper.toPaymentCard(request, user))
                 .map(paymentCardRepository::save)
                 .map(paymentCardResponseMapper::toPaymentCardResponse)
@@ -45,57 +56,77 @@ public class PaymentCardService {
         return paymentCardRepository.findAll(pageable).map(paymentCardResponseMapper::toPaymentCardResponse);
     }
 
+    @Cacheable(value = "paymentCards", key = "#id")
     public PaymentCardResponse getPaymentCardById(Long id) {
-        return paymentCardRepository.findById(id).map(paymentCardResponseMapper::toPaymentCardResponse).orElseThrow(PaymentCardNotFoundException::new);
+        return paymentCardRepository.findById(id)
+                .map(paymentCardResponseMapper::toPaymentCardResponse)
+                .orElseThrow(PaymentCardNotFoundException::new);
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "paymentCards", key = "#id")
+    })
     public void deletePaymentCardById(Long id) {
-        if (paymentCardRepository.existsById(id)) {
-            paymentCardRepository.deleteById(id);
-        } else {
-            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
-        }
+        PaymentCard paymentCard = paymentCardRepository.findById(id)
+                .orElseThrow(() -> new PaymentCardNotFoundException("Payment card not found with id: " + id));
+
+        userUtils.checkAccessToUser(paymentCard.getUser().getId());
+
+        paymentCardRepository.deleteById(id);
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "paymentCards", key = "#id")
+    })
     public void updatePaymentCardById(Long id, PaymentCardRequest paymentCardRequest) {
-        if (paymentCardRepository.existsById(id)) {
-            User user = userRepository.findById(paymentCardRequest.getUserId())
-                    .orElseThrow(() -> new UserNotFoundException("User not found with id: " + paymentCardRequest.getUserId()));
+        PaymentCard paymentCard = paymentCardRepository.findById(id)
+                .orElseThrow(PaymentCardNotFoundException::new);
 
-            int changes = paymentCardRepository.updatePaymentCard(paymentCardRequestMapper.toPaymentCard(paymentCardRequest, user), id);
-            if (changes <= 0) {
-                throw new PaymentCardUpdateException("Failed to update payment card");
-            }
-        } else {
-            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
-        }
+        userUtils.checkAccessToUser(paymentCard.getUser().getId());
+
+        paymentCard.setNumber(paymentCardRequest.getNumber());
+        paymentCard.setExpirationDate(paymentCardRequest.getExpirationDate());
+        paymentCard.setHolder(paymentCardRequest.getHolder());
     }
 
     @Transactional
-    public void activatePaymentCard(Long id) {
-        if (paymentCardRepository.existsById(id)) {
-            paymentCardRepository.activatePaymentCard(id);
-        } else {
-            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
-        }
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#result.userId"),
+            @CacheEvict(value = "paymentCards", key = "#id")
+    })
+    public PaymentCardResponse activatePaymentCard(Long id) {
+        PaymentCard paymentCard = paymentCardRepository.findById(id)
+                .orElseThrow(() -> new PaymentCardNotFoundException("Payment card not found with id: " + id));
+
+        userUtils.checkAccessToUser(paymentCard.getUser().getId());
+
+        paymentCardRepository.activatePaymentCard(id);
+        return paymentCardResponseMapper.toPaymentCardResponse(paymentCard);
     }
 
     @Transactional
-    public void deactivatePaymentCard(Long id) {
-        if (paymentCardRepository.existsById(id)) {
-            paymentCardRepository.deactivatePaymentCard(id);
-        } else {
-            throw new PaymentCardNotFoundException("Payment card not found with id: " + id);
-        }
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "#result.userId"),
+            @CacheEvict(value = "paymentCards", key = "#id")
+    })
+    public PaymentCardResponse deactivatePaymentCard(Long id) {
+        PaymentCard paymentCard = paymentCardRepository.findById(id)
+                .orElseThrow(() -> new PaymentCardNotFoundException("Payment card not found with id: " + id));
+
+        userUtils.checkAccessToUser(paymentCard.getUser().getId());
+
+        paymentCardRepository.deactivatePaymentCard(id);
+        return paymentCardResponseMapper.toPaymentCardResponse(paymentCard);
     }
 
+    @Cacheable(value = "users", key = "#userId")
     public List<PaymentCardResponse> getPaymentCardsByUserId(Long userId) {
+        userUtils.checkAccessToUser(userId);
+
         return paymentCardRepository.findPaymentCardByUserId(userId).stream()
                 .map(paymentCardResponseMapper::toPaymentCardResponse)
                 .toList();
     }
-
-
 }

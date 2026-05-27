@@ -15,3 +15,5 @@ logging:
   level:
     org.springframework.data.redis: DEBUG
     io.lettuce.core: DEBUG
+jwt:
+  public-key: ${PUBLIC_KEY}

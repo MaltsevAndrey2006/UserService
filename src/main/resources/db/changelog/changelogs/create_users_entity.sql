@@ -13,3 +13,7 @@ CREATE TABLE users
     updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 --rollback DROP TABLE users
+
+--changeset Maltsev:add-idx-to-users_table
+CREATE INDEX idx_users_email ON users (email);
+-- rollback DROP INDEX add-idx-to-users_table;

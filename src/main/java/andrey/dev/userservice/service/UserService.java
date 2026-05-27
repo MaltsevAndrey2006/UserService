@@ -5,11 +5,11 @@ import andrey.dev.userservice.entity.dto.UserRequest;
 import andrey.dev.userservice.entity.dto.UserResponse;
 import andrey.dev.userservice.exception.exceptions.UserCreatingException;
 import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
-import andrey.dev.userservice.exception.exceptions.UserUpdateException;
 import andrey.dev.userservice.mapper.UserRequestMapper;
 import andrey.dev.userservice.mapper.UserResponseMapper;
 import andrey.dev.userservice.repository.UserRepository;
 import andrey.dev.userservice.repository.specification.UserSpecifications;
+import andrey.dev.userservice.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -31,6 +31,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserRequestMapper userRequestMapper;
     private final UserResponseMapper userResponseMapper;
+    private final UserUtils userUtils;
 
     @CachePut(value = "users", key = "#result.id")
     public UserResponse saveUser(UserRequest userRequest) {
@@ -43,30 +44,24 @@ public class UserService {
     @CacheEvict(value = "users", key = "#id")
     @Transactional
     public void updateUser(UserRequest userRequest, Long id) {
+
         if (userRequest == null) {
             throw new IllegalArgumentException("userRequest cannot be null");
         }
-        if (!userRepository.existsById(id)) {
-            throw new UserNotFoundException("User not found with id: " + id);
-        }
 
-        User user = userRequestMapper.toUser(userRequest);
+        userUtils.checkAccessToUser(id);
 
-        int updatedRows = userRepository.updateUser(user, id);
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
 
-        if (updatedRows <= 0) {
-            throw new UserUpdateException("User update failed");
-        }
+        userRequestMapper.updateUserFromRequest(userRequest, user);
     }
 
     @CacheEvict(value = "users", key = "#id")
     @Transactional
     public void activateUser(Long id) {
-
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException("User not found with id: " + id);
         }
-
         userRepository.activateUser(id);
     }
 
@@ -81,6 +76,7 @@ public class UserService {
 
     @Cacheable(value = "users", key = "#id")
     public UserResponse getUserById(Long id) {
+        userUtils.checkAccessToUser(id);
         return userRepository.findById(id)
                 .map(userResponseMapper::toUserResponse)
                 .orElseThrow(() -> new UserNotFoundException("no user with id :" + id));
@@ -105,6 +101,7 @@ public class UserService {
     @Transactional
     @CacheEvict(value = "users", key = "#id")
     public void deleteUser(Long id) {
+        userUtils.checkAccessToUser(id);
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException("User not found with id: " + id);
         }

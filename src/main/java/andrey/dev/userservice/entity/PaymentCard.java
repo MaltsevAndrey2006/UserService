@@ -1,6 +1,7 @@
 package andrey.dev.userservice.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.FutureOrPresent;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,10 +26,11 @@ public class PaymentCard {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "number", nullable = false)
+    @Column(name = "number", unique = true, nullable = false)
     private String number;
 
     @Column(name = "expiration_date", nullable = false)
+    @FutureOrPresent
     private LocalDateTime expirationDate;
 
     @Column(name = "holder", nullable = false)
