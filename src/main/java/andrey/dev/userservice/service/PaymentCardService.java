@@ -8,6 +8,7 @@ import andrey.dev.userservice.mapper.PaymentCardRequestMapper;
 import andrey.dev.userservice.mapper.PaymentCardResponseMapper;
 import andrey.dev.userservice.repository.PaymentCardRepository;
 import andrey.dev.userservice.repository.UserRepository;
+import andrey.dev.userservice.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,7 @@ public class PaymentCardService {
     private final PaymentCardResponseMapper paymentCardResponseMapper;
     private final PaymentCardRequestMapper paymentCardRequestMapper;
     private final UserRepository userRepository;
+    private final UserUtils userUtils;
 
     public PaymentCardResponse savePaymentCard(PaymentCardRequest paymentCardRequest) {
         User user = userRepository.findById(paymentCardRequest.getUserId())
@@ -46,11 +48,13 @@ public class PaymentCardService {
     }
 
     public PaymentCardResponse getPaymentCardById(Long id) {
+        userUtils.checkAccessToUser(id);
         return paymentCardRepository.findById(id).map(paymentCardResponseMapper::toPaymentCardResponse).orElseThrow(PaymentCardNotFoundException::new);
     }
 
     @Transactional
     public void deletePaymentCardById(Long id) {
+        userUtils.checkAccessToUser(id);
         if (paymentCardRepository.existsById(id)) {
             paymentCardRepository.deleteById(id);
         } else {
@@ -60,6 +64,7 @@ public class PaymentCardService {
 
     @Transactional
     public void updatePaymentCardById(Long id, PaymentCardRequest paymentCardRequest) {
+        userUtils.checkAccessToUser(id);
         if (paymentCardRepository.existsById(id)) {
             User user = userRepository.findById(paymentCardRequest.getUserId())
                     .orElseThrow(() -> new UserNotFoundException("User not found with id: " + paymentCardRequest.getUserId()));
@@ -92,6 +97,8 @@ public class PaymentCardService {
     }
 
     public List<PaymentCardResponse> getPaymentCardsByUserId(Long userId) {
+        userUtils.checkAccessToUser(userId);
+
         return paymentCardRepository.findPaymentCardByUserId(userId).stream()
                 .map(paymentCardResponseMapper::toPaymentCardResponse)
                 .toList();

@@ -8,6 +8,7 @@ import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
 import andrey.dev.userservice.mapper.UserRequestMapper;
 import andrey.dev.userservice.mapper.UserResponseMapper;
 import andrey.dev.userservice.repository.UserRepository;
+import andrey.dev.userservice.utils.UserUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,12 +40,14 @@ public class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserUtils userUtils;
+
     @InjectMocks
     private UserService userService;
 
     @Test
     void shouldReturnUserWhenExists() {
-
         Long userId = 1L;
         User user = new User();
         user.setId(userId);
@@ -60,6 +63,7 @@ public class UserServiceTest {
         userResponse.setEmail("andrey@gmail.com");
         userResponse.setSurname("Maltsev");
 
+        doNothing().when(userUtils).checkAccessToUser(userId);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userResponseMapper.toUserResponse(user)).thenReturn(userResponse);
 
@@ -71,6 +75,7 @@ public class UserServiceTest {
         assertThat(result.isActive()).isEqualTo(true);
         assertThat(result.getEmail()).isEqualTo("andrey@gmail.com");
 
+        verify(userUtils).checkAccessToUser(userId);
         verify(userRepository).findById(userId);
         verify(userResponseMapper).toUserResponse(user);
     }
@@ -79,10 +84,12 @@ public class UserServiceTest {
     void shouldThrowUserNotFoundExceptionWhenUserDontExists() {
         Long id = 800L;
 
+        doNothing().when(userUtils).checkAccessToUser(id);
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThrows(UserNotFoundException.class, () -> userService.getUserById(id));
 
+        verify(userUtils).checkAccessToUser(id);
         verify(userRepository).findById(id);
         verify(userResponseMapper, never()).toUserResponse(any());
     }
@@ -134,7 +141,6 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any());
     }
 
-
     @Test
     void shouldUpdateWhenUserExists() {
         Long userId = 1L;
@@ -144,12 +150,14 @@ public class UserServiceTest {
         User userToUpdate = new User();
         userToUpdate.setName("Updated Name");
 
+        doNothing().when(userUtils).checkAccessToUser(userId);
         when(userRepository.existsById(userId)).thenReturn(true);
         when(userRequestMapper.toUser(request)).thenReturn(userToUpdate);
         when(userRepository.updateUser(userToUpdate, userId)).thenReturn(1);
 
         userService.updateUser(request, userId);
 
+        verify(userUtils).checkAccessToUser(userId);
         verify(userRepository).existsById(userId);
         verify(userRequestMapper).toUser(request);
         verify(userRepository).updateUser(userToUpdate, userId);
@@ -160,10 +168,12 @@ public class UserServiceTest {
         Long userId = 999L;
         UserRequest request = new UserRequest();
 
+        doNothing().when(userUtils).checkAccessToUser(userId);
         when(userRepository.existsById(userId)).thenReturn(false);
 
         assertThrows(UserNotFoundException.class, () -> userService.updateUser(request, userId));
 
+        verify(userUtils).checkAccessToUser(userId);
         verify(userRepository).existsById(userId);
         verify(userRepository, never()).updateUser(any(), any());
     }
@@ -171,10 +181,13 @@ public class UserServiceTest {
     @Test
     void shouldDeleteWhenUserExists() {
         Long userId = 1L;
+
+        doNothing().when(userUtils).checkAccessToUser(userId);
         when(userRepository.existsById(userId)).thenReturn(true);
 
         userService.deleteUser(userId);
 
+        verify(userUtils).checkAccessToUser(userId);
         verify(userRepository).existsById(userId);
         verify(userRepository).deleteById(userId);
     }
@@ -182,11 +195,13 @@ public class UserServiceTest {
     @Test
     void shouldThrowExceptionAfterDelete() {
         Long userId = 999L;
+
+        doNothing().when(userUtils).checkAccessToUser(userId);
         when(userRepository.existsById(userId)).thenReturn(false);
 
         assertThrows(UserNotFoundException.class, () -> userService.deleteUser(userId));
 
-
+        verify(userUtils).checkAccessToUser(userId);
         verify(userRepository).existsById(userId);
         verify(userRepository, never()).deleteById(any());
     }
@@ -194,6 +209,7 @@ public class UserServiceTest {
     @Test
     void shouldActivateWhenUserExists() {
         Long userId = 1L;
+
         when(userRepository.existsById(userId)).thenReturn(true);
         when(userRepository.activateUser(userId)).thenReturn(1);
 
@@ -203,10 +219,10 @@ public class UserServiceTest {
         verify(userRepository).activateUser(userId);
     }
 
-
     @Test
     void shouldDeactivateWhenUserExists() {
         Long userId = 1L;
+
         when(userRepository.existsById(userId)).thenReturn(true);
         when(userRepository.deactivateUser(userId)).thenReturn(1);
 
