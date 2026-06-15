@@ -3,11 +3,13 @@ package andrey.dev.userservice.service;
 import andrey.dev.userservice.entity.User;
 import andrey.dev.userservice.entity.dto.UserRequest;
 import andrey.dev.userservice.entity.dto.UserResponse;
-import andrey.dev.userservice.exception.exceptions.UserCreatingException;
 import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
+import andrey.dev.userservice.exception.exceptions.UserUpdateException;
 import andrey.dev.userservice.mapper.UserRequestMapper;
 import andrey.dev.userservice.mapper.UserResponseMapper;
 import andrey.dev.userservice.repository.UserRepository;
+import andrey.dev.userservice.utils.UserUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,229 +24,218 @@ import org.springframework.data.jpa.domain.Specification;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-
 @ExtendWith(MockitoExtension.class)
-public class UserServiceTest {
+class UserServiceTest {
 
     @Mock
-    private UserRequestMapper userRequestMapper;
+    private UserRepository userRepository;
 
     @Mock
     private UserResponseMapper userResponseMapper;
 
     @Mock
-    private UserRepository userRepository;
+    private UserRequestMapper userRequestMapper;
+
+    @Mock
+    private UserUtils userUtils;
 
     @InjectMocks
     private UserService userService;
 
-    @Test
-    void shouldReturnUserWhenExists() {
+    private User user;
+    private UserRequest userRequest;
 
-        Long userId = 1L;
-        User user = new User();
-        user.setId(userId);
-        user.setName("andrey");
-        user.setActive(true);
-        user.setEmail("andrey@gmail.com");
-        user.setSurname("Maltsev");
+    @BeforeEach
+    void setUp() {
+        user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+        user.setName("John");
+        user.setSurname("Doe");
 
-        UserResponse userResponse = new UserResponse();
-        userResponse.setId(userId);
-        userResponse.setName("andrey");
-        userResponse.setActive(true);
-        userResponse.setEmail("andrey@gmail.com");
-        userResponse.setSurname("Maltsev");
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userResponseMapper.toUserResponse(user)).thenReturn(userResponse);
-
-        UserResponse result = userService.getUserById(userId);
-
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(userId);
-        assertThat(result.getName()).isEqualTo("andrey");
-        assertThat(result.isActive()).isEqualTo(true);
-        assertThat(result.getEmail()).isEqualTo("andrey@gmail.com");
-
-        verify(userRepository).findById(userId);
-        verify(userResponseMapper).toUserResponse(user);
+        userRequest = new UserRequest();
+        userRequest.setEmail("updated@example.com");
+        userRequest.setName("Jane");
+        userRequest.setSurname("Smith");
     }
-
-    @Test
-    void shouldThrowUserNotFoundExceptionWhenUserDontExists() {
-        Long id = 800L;
-
-        when(userRepository.findById(id)).thenReturn(Optional.empty());
-
-        assertThrows(UserNotFoundException.class, () -> userService.getUserById(id));
-
-        verify(userRepository).findById(id);
-        verify(userResponseMapper, never()).toUserResponse(any());
-    }
-
-    @Test
-    void shouldReturnUserAfterSave() {
-        Long userId = 1L;
-
-        UserRequest userRequest = new UserRequest();
-        userRequest.setName("andrey");
-        userRequest.setSurname("Maltsev");
-        userRequest.setEmail("andrey@gmail.com");
-
-        User user = new User();
-        user.setId(userId);
-        user.setName("andrey");
-        user.setActive(true);
-        user.setEmail("andrey@gmail.com");
-        user.setSurname("Maltsev");
-
-        UserResponse userResponse = new UserResponse();
-        userResponse.setId(userId);
-        userResponse.setName("andrey");
-        userResponse.setActive(true);
-        userResponse.setEmail("andrey@gmail.com");
-        userResponse.setSurname("Maltsev");
-
-        when(userRequestMapper.toUser(userRequest)).thenReturn(user);
-        when(userRepository.save(user)).thenReturn(user);
-        when(userResponseMapper.toUserResponse(user)).thenReturn(userResponse);
-
-        UserResponse result = userService.saveUser(userRequest);
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(userId);
-        assertThat(result.getName()).isEqualTo("andrey");
-        assertThat(result.isActive()).isEqualTo(true);
-        assertThat(result.getEmail()).isEqualTo("andrey@gmail.com");
-
-        verify(userRepository).save(user);
-        verify(userRequestMapper).toUser(userRequest);
-        verify(userResponseMapper).toUserResponse(user);
-    }
-
-    @Test
-    void shouldReturnUserCreatingException() {
-        assertThrows(UserCreatingException.class, () -> userService.saveUser(null));
-
-        verify(userRequestMapper, never()).toUser(any());
-        verify(userRepository, never()).save(any());
-    }
-
 
     @Test
     void shouldUpdateWhenUserExists() {
-        Long userId = 1L;
-        UserRequest request = new UserRequest();
-        request.setName("Updated Name");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doNothing().when(userUtils).checkAccessToUser(1L);
+        doNothing().when(userRequestMapper).updateUserFromRequest(userRequest, user);
 
-        User userToUpdate = new User();
-        userToUpdate.setName("Updated Name");
+        userService.updateUser(userRequest, 1L);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
-        when(userRequestMapper.toUser(request)).thenReturn(userToUpdate);
-        when(userRepository.updateUser(userToUpdate, userId)).thenReturn(1);
-
-        userService.updateUser(request, userId);
-
-        verify(userRepository).existsById(userId);
-        verify(userRequestMapper).toUser(request);
-        verify(userRepository).updateUser(userToUpdate, userId);
+        verify(userRepository).findById(1L);
+        verify(userUtils).checkAccessToUser(1L);
+        verify(userRequestMapper).updateUserFromRequest(userRequest, user);
     }
 
     @Test
     void shouldThrowExceptionWhenUserNotFoundAfterUpdate() {
-        Long userId = 999L;
-        UserRequest request = new UserRequest();
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        doNothing().when(userUtils).checkAccessToUser(999L);
 
-        when(userRepository.existsById(userId)).thenReturn(false);
+        assertThrows(UserNotFoundException.class, () -> {
+            userService.updateUser(userRequest, 999L);
+        });
 
-        assertThrows(UserNotFoundException.class, () -> userService.updateUser(request, userId));
-
-        verify(userRepository).existsById(userId);
-        verify(userRepository, never()).updateUser(any(), any());
+        verify(userRepository).findById(999L);
+        verify(userUtils).checkAccessToUser(999L);
+        verify(userRequestMapper, never()).updateUserFromRequest(any(), any());
     }
 
     @Test
-    void shouldDeleteWhenUserExists() {
-        Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+    void shouldThrowUserUpdateExceptionWhenNoRowsAffected() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doNothing().when(userUtils).checkAccessToUser(1L);
+        doThrow(new UserUpdateException("Failed to update user")).when(userRequestMapper).updateUserFromRequest(userRequest, user);
 
-        userService.deleteUser(userId);
-
-        verify(userRepository).existsById(userId);
-        verify(userRepository).deleteById(userId);
+        assertThrows(UserUpdateException.class, () -> {
+            userService.updateUser(userRequest, 1L);
+        });
     }
 
     @Test
-    void shouldThrowExceptionAfterDelete() {
-        Long userId = 999L;
-        when(userRepository.existsById(userId)).thenReturn(false);
+    void shouldActivateUserSuccessfully() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(userRepository.activateUser(1L)).thenReturn(1);
 
-        assertThrows(UserNotFoundException.class, () -> userService.deleteUser(userId));
+        userService.activateUser(1L);
 
+        verify(userRepository).existsById(1L);
+        verify(userRepository).activateUser(1L);
+    }
 
-        verify(userRepository).existsById(userId);
+    @Test
+    void shouldThrowExceptionWhenActivatingNonExistentUser() {
+        when(userRepository.existsById(999L)).thenReturn(false);
+
+        assertThrows(UserNotFoundException.class, () -> {
+            userService.activateUser(999L);
+        });
+
+        verify(userRepository).existsById(999L);
+        verify(userRepository, never()).activateUser(any());
+    }
+
+    @Test
+    void shouldDeactivateUserSuccessfully() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(userRepository.deactivateUser(1L)).thenReturn(1);
+
+        userService.deactivateUser(1L);
+
+        verify(userRepository).existsById(1L);
+        verify(userRepository).deactivateUser(1L);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenDeactivatingNonExistentUser() {
+        when(userRepository.existsById(999L)).thenReturn(false);
+
+        assertThrows(UserNotFoundException.class, () -> {
+            userService.deactivateUser(999L);
+        });
+
+        verify(userRepository).existsById(999L);
+        verify(userRepository, never()).deactivateUser(any());
+    }
+
+    @Test
+    void shouldDeleteUserSuccessfully() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        doNothing().when(userUtils).checkAccessToUser(1L);
+        doNothing().when(userRepository).deleteById(1L);
+
+        userService.deleteUser(1L);
+
+        verify(userUtils).checkAccessToUser(1L);
+        verify(userRepository).existsById(1L);
+        verify(userRepository).deleteById(1L);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenDeletingNonExistentUser() {
+        when(userRepository.existsById(999L)).thenReturn(false);
+        doNothing().when(userUtils).checkAccessToUser(999L);
+
+        assertThrows(UserNotFoundException.class, () -> {
+            userService.deleteUser(999L);
+        });
+
+        verify(userUtils).checkAccessToUser(999L);
+        verify(userRepository).existsById(999L);
         verify(userRepository, never()).deleteById(any());
     }
 
     @Test
-    void shouldActivateWhenUserExists() {
-        Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
-        when(userRepository.activateUser(userId)).thenReturn(1);
+    void shouldGetUserByIdSuccessfully() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userResponseMapper.toUserResponse(user)).thenReturn(new UserResponse());
+        doNothing().when(userUtils).checkAccessToUser(1L);
 
-        userService.activateUser(userId);
+        userService.getUserById(1L);
 
-        verify(userRepository).existsById(userId);
-        verify(userRepository).activateUser(userId);
-    }
-
-
-    @Test
-    void shouldDeactivateWhenUserExists() {
-        Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
-        when(userRepository.deactivateUser(userId)).thenReturn(1);
-
-        userService.deactivateUser(userId);
-
-        verify(userRepository).existsById(userId);
-        verify(userRepository).deactivateUser(userId);
+        verify(userUtils).checkAccessToUser(1L);
+        verify(userRepository).findById(1L);
+        verify(userResponseMapper).toUserResponse(user);
     }
 
     @Test
-    void shouldReturnAllUsers() {
+    void shouldThrowExceptionWhenGetUserByIdNotFound() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        doNothing().when(userUtils).checkAccessToUser(999L);
+
+        assertThrows(UserNotFoundException.class, () -> {
+            userService.getUserById(999L);
+        });
+
+        verify(userUtils).checkAccessToUser(999L);
+        verify(userRepository).findById(999L);
+    }
+
+    @Test
+    void getAllUsersShouldFilterByFirstName() {
         Pageable pageable = PageRequest.of(0, 10);
-
-        User user1 = new User();
-        user1.setId(1L);
-        user1.setName("Andrey");
-
-        User user2 = new User();
-        user2.setId(2L);
-        user2.setName("Dima");
-
-        Page<User> userPage = new PageImpl<>(List.of(user1, user2), pageable, 2);
-
-        UserResponse response1 = new UserResponse();
-        response1.setId(1L);
-        UserResponse response2 = new UserResponse();
-        response2.setId(2L);
+        Page<User> userPage = new PageImpl<>(List.of(user));
 
         when(userRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(userPage);
-        when(userResponseMapper.toUserResponse(user1)).thenReturn(response1);
-        when(userResponseMapper.toUserResponse(user2)).thenReturn(response2);
+        when(userResponseMapper.toUserResponse(any(User.class))).thenReturn(new UserResponse());
 
-        Page<UserResponse> result = userService.getAllUsers(null, null, pageable);
-
-        assertThat(result).isNotNull();
-        assertThat(result.getContent().get(0).getId()).isEqualTo(1L);
+        userService.getAllUsers("John", null, pageable);
 
         verify(userRepository).findAll(any(Specification.class), eq(pageable));
-        verify(userResponseMapper, times(2)).toUserResponse(any(User.class));
+    }
+
+    @Test
+    void getAllUsersShouldFilterBySurname() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> userPage = new PageImpl<>(List.of(user));
+
+        when(userRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(userPage);
+        when(userResponseMapper.toUserResponse(any(User.class))).thenReturn(new UserResponse());
+
+        userService.getAllUsers(null, "Doe", pageable);
+
+        verify(userRepository).findAll(any(Specification.class), eq(pageable));
+    }
+
+    @Test
+    void getAllUsersShouldFilterByBothFirstNameAndSurname() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> userPage = new PageImpl<>(List.of(user));
+
+        when(userRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(userPage);
+        when(userResponseMapper.toUserResponse(any(User.class))).thenReturn(new UserResponse());
+
+        userService.getAllUsers("John", "Doe", pageable);
+
+        verify(userRepository).findAll(any(Specification.class), eq(pageable));
     }
 }

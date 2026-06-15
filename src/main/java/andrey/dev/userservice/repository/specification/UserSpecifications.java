@@ -6,10 +6,11 @@ import org.springframework.data.jpa.domain.Specification;
 public class UserSpecifications {
 
     public static Specification<User> filterByFirstName(String firstName) {
-        return (root, query, cb) -> cb.equal(root.get("name"), firstName);
+        return (root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + firstName.toLowerCase() + "%");
     }
 
     public static Specification<User> filterBySurName(String surName) {
-        return (root, query, cb) -> cb.equal(root.get("surname"), surName);
+        return (root, query, cb) -> cb.like(cb.lower(root.get("surname")), "%" + surName.toLowerCase() + "%");
     }
+
 }

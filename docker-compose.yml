@@ -46,6 +46,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: cache
       SPRING_DATA_REDIS_PORT: ${CACHE_PORT}
+      JWT_PUBLIC_KEY: ${PUBLIC_KEY}
     ports:
       - "${APP_PORT:-8080}:8080"
     restart: unless-stopped

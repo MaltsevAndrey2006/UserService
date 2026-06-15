@@ -5,323 +5,208 @@ import andrey.dev.userservice.entity.User;
 import andrey.dev.userservice.entity.dto.PaymentCardRequest;
 import andrey.dev.userservice.entity.dto.PaymentCardResponse;
 import andrey.dev.userservice.exception.exceptions.PaymentCardNotFoundException;
-import andrey.dev.userservice.exception.exceptions.PaymentCardsCountException;
-import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
 import andrey.dev.userservice.mapper.PaymentCardRequestMapper;
 import andrey.dev.userservice.mapper.PaymentCardResponseMapper;
 import andrey.dev.userservice.repository.PaymentCardRepository;
 import andrey.dev.userservice.repository.UserRepository;
+import andrey.dev.userservice.utils.UserUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class PaymentCardServiceTest {
-    @Mock
-    private PaymentCardRepository paymentCardRepository;
+class PaymentCardServiceTest {
 
     @Mock
-    private PaymentCardRequestMapper paymentCardRequestMapper;
+    private PaymentCardRepository paymentCardRepository;
 
     @Mock
     private PaymentCardResponseMapper paymentCardResponseMapper;
 
     @Mock
+    private PaymentCardRequestMapper paymentCardRequestMapper;
+
+    @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserUtils userUtils;
 
     @InjectMocks
     private PaymentCardService paymentCardService;
 
-    @Test
-    void shouldReturnPaymentCardWhenExistsByUserId() {
-        Long paymentCardId = 1L;
-        Long userId = 1L;
+    private User user;
+    private PaymentCard paymentCard;
+    private PaymentCardRequest paymentCardRequest;
+    private PaymentCardResponse paymentCardResponse;
 
-        User user = new User();
-        user.setId(userId);
+    @BeforeEach
+    void setUp() {
+        user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
 
-        PaymentCard paymentCard = new PaymentCard();
-        paymentCard.setId(paymentCardId);
-        paymentCard.setActive(true);
+        paymentCard = new PaymentCard();
+        paymentCard.setId(1L);
         paymentCard.setUser(user);
+        paymentCard.setNumber("1234567890123456");
+        paymentCard.setHolder("John Doe");
 
-        PaymentCardResponse paymentCardResponse = new PaymentCardResponse();
-        paymentCardResponse.setId(paymentCardId);
-        paymentCardResponse.setActive(true);
-        paymentCardResponse.setUserId(userId);
+        paymentCardRequest = new PaymentCardRequest();
+        paymentCardRequest.setUserId(1L);
+        paymentCardRequest.setNumber("1234567890123456");
+        paymentCardRequest.setHolder("John Doe");
 
-        when(paymentCardRepository.findPaymentCardByUserId(userId)).thenReturn(List.of(paymentCard));
-        when(paymentCardResponseMapper.toPaymentCardResponse(paymentCard)).thenReturn(paymentCardResponse);
-
-        List<PaymentCardResponse> result = paymentCardService.getPaymentCardsByUserId(userId);
-
-        assertThat(result.getFirst()).isNotNull();
-        assertThat(result.getFirst().getUserId()).isEqualTo(userId);
-        assertThat(result.getFirst().getId()).isEqualTo(paymentCardId);
-
-        verify(paymentCardRepository).findPaymentCardByUserId(userId);
-        verify(paymentCardResponseMapper).toPaymentCardResponse(paymentCard);
-    }
-
-    @Test
-    void shouldReturnEmptyListWhenUserHasNoCards() {
-        Long userId = 999L;
-
-        when(paymentCardRepository.findPaymentCardByUserId(userId)).thenReturn(List.of());
-
-        List<PaymentCardResponse> result = paymentCardService.getPaymentCardsByUserId(userId);
-
-        assertThat(result.isEmpty()).isTrue();
-
-        verify(paymentCardRepository).findPaymentCardByUserId(userId);
-        verify(paymentCardResponseMapper, never()).toPaymentCardResponse(any());
+        paymentCardResponse = new PaymentCardResponse();
+        paymentCardResponse.setId(1L);
+        paymentCardResponse.setUserId(1L);
+        paymentCardResponse.setNumber("**** **** **** 3456");
     }
 
     @Test
     void shouldReturnPaymentCardWhenExistsById() {
-        Long paymentCardId = 1L;
-
-        PaymentCard paymentCard = new PaymentCard();
-        paymentCard.setId(paymentCardId);
-        paymentCard.setActive(true);
-
-        PaymentCardResponse paymentCardResponse = new PaymentCardResponse();
-        paymentCardResponse.setId(paymentCardId);
-        paymentCardResponse.setActive(true);
-
         when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
         when(paymentCardResponseMapper.toPaymentCardResponse(paymentCard)).thenReturn(paymentCardResponse);
 
-        PaymentCardResponse result = paymentCardService.getPaymentCardById(paymentCardId);
+        PaymentCardResponse result = paymentCardService.getPaymentCardById(1L);
 
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.isActive()).isTrue();
-
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals("**** **** **** 3456", result.getNumber());
         verify(paymentCardRepository).findById(1L);
-        verify(paymentCardResponseMapper).toPaymentCardResponse(paymentCard);
     }
 
     @Test
-    void shouldThrowPaymentCardNotFoundExceptionWhenIdWrong() {
-        Long paymentCardId = 333L;
-        when(paymentCardRepository.findById(paymentCardId)).thenReturn(Optional.empty());
+    void shouldThrowPaymentCardNotFoundExceptionWhenNotFoundById() {
+        when(paymentCardRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(PaymentCardNotFoundException.class, () -> paymentCardService.getPaymentCardById(paymentCardId));
+        assertThrows(PaymentCardNotFoundException.class, () -> {
+            paymentCardService.getPaymentCardById(999L);
+        });
 
-        verify(paymentCardRepository).findById(paymentCardId);
-        verify(paymentCardResponseMapper, never()).toPaymentCardResponse(any());
-    }
-
-    @Test
-    void shouldSavePaymentCardSuccessfully() {
-        Long userId = 1L;
-        PaymentCardRequest request = new PaymentCardRequest();
-        request.setUserId(userId);
-
-        User user = new User();
-        user.setId(userId);
-
-        PaymentCard paymentCard = new PaymentCard();
-        PaymentCard savedPaymentCard = new PaymentCard();
-        PaymentCardResponse response = new PaymentCardResponse();
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(paymentCardRepository.countByUserId(userId)).thenReturn(0L);
-        when(paymentCardRequestMapper.toPaymentCard(request, user)).thenReturn(paymentCard);
-        when(paymentCardRepository.save(paymentCard)).thenReturn(savedPaymentCard);
-        when(paymentCardResponseMapper.toPaymentCardResponse(savedPaymentCard)).thenReturn(response);
-
-        PaymentCardResponse result = paymentCardService.savePaymentCard(request);
-
-        assertThat(result).isEqualTo(response);
-
-        verify(userRepository).findById(userId);
-        verify(paymentCardRepository).countByUserId(userId);
-        verify(paymentCardRequestMapper).toPaymentCard(request, user);
-        verify(paymentCardRepository).save(paymentCard);
-        verify(paymentCardResponseMapper).toPaymentCardResponse(savedPaymentCard);
-    }
-
-    @Test
-    void shouldThrowUserNotFoundExceptionWhenSavingWithInvalidUserId() {
-        Long userId = 999L;
-        PaymentCardRequest request = new PaymentCardRequest();
-        request.setUserId(userId);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
-
-        assertThrows(UserNotFoundException.class, () -> paymentCardService.savePaymentCard(request));
-
-        verify(userRepository).findById(userId);
-        verify(paymentCardRepository, never()).countByUserId(any());
-        verify(paymentCardRequestMapper, never()).toPaymentCard(any(), any());
-        verify(paymentCardRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldThrowPaymentCardsCountExceptionWhenUserHas5Cards() {
-        Long userId = 1L;
-        PaymentCardRequest request = new PaymentCardRequest();
-        request.setUserId(userId);
-
-        User user = new User();
-        user.setId(userId);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(paymentCardRepository.countByUserId(userId)).thenReturn(5L);
-
-        assertThrows(PaymentCardsCountException.class, () -> paymentCardService.savePaymentCard(request));
-
-        verify(userRepository).findById(userId);
-        verify(paymentCardRepository).countByUserId(userId);
-        verify(paymentCardRequestMapper, never()).toPaymentCard(any(), any());
-        verify(paymentCardRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldReturnPageOfPaymentCards() {
-        Pageable pageable = PageRequest.of(0, 10);
-        PaymentCard paymentCard = new PaymentCard();
-        PaymentCardResponse response = new PaymentCardResponse();
-        Page<PaymentCard> paymentCardPage = new PageImpl<>(List.of(paymentCard));
-
-        when(paymentCardRepository.findAll(pageable)).thenReturn(paymentCardPage);
-        when(paymentCardResponseMapper.toPaymentCardResponse(paymentCard)).thenReturn(response);
-
-        Page<PaymentCardResponse> result = paymentCardService.getAllPaymentCards(pageable);
-
-        assertThat(result).isNotNull();
-        assertThat(result.getContent().size()).isEqualTo(1);
-        assertThat(result.getContent().get(0)).isEqualTo(response);
-
-        verify(paymentCardRepository).findAll(pageable);
-        verify(paymentCardResponseMapper).toPaymentCardResponse(paymentCard);
+        verify(paymentCardRepository).findById(999L);
     }
 
     @Test
     void shouldDeletePaymentCardSuccessfully() {
-        Long paymentCardId = 1L;
+        when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
+        doNothing().when(userUtils).checkAccessToUser(1L);
+        doNothing().when(paymentCardRepository).deleteById(1L);
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(true);
+        paymentCardService.deletePaymentCardById(1L);
 
-        paymentCardService.deletePaymentCardById(paymentCardId);
-
-        verify(paymentCardRepository).existsById(paymentCardId);
-        verify(paymentCardRepository).deleteById(paymentCardId);
+        verify(paymentCardRepository).findById(1L);
+        verify(userUtils).checkAccessToUser(1L);
+        verify(paymentCardRepository).deleteById(1L);
     }
 
     @Test
     void shouldThrowPaymentCardNotFoundExceptionWhenDeletingNonExistentCard() {
-        Long paymentCardId = 999L;
+        when(paymentCardRepository.findById(999L)).thenReturn(Optional.empty());
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(false);
+        assertThrows(PaymentCardNotFoundException.class, () -> {
+            paymentCardService.deletePaymentCardById(999L);
+        });
 
-        assertThrows(PaymentCardNotFoundException.class, () -> paymentCardService.deletePaymentCardById(paymentCardId));
-
-        verify(paymentCardRepository).existsById(paymentCardId);
+        verify(paymentCardRepository).findById(999L);
         verify(paymentCardRepository, never()).deleteById(any());
     }
 
     @Test
     void shouldActivatePaymentCardSuccessfully() {
-        Long paymentCardId = 1L;
+        when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
+        doNothing().when(userUtils).checkAccessToUser(1L);
+        when(paymentCardRepository.activatePaymentCard(1L)).thenReturn(1);
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(true);
+        paymentCardService.activatePaymentCard(1L);
 
-        paymentCardService.activatePaymentCard(paymentCardId);
-
-        verify(paymentCardRepository).existsById(paymentCardId);
-        verify(paymentCardRepository).activatePaymentCard(paymentCardId);
+        verify(paymentCardRepository).findById(1L);
+        verify(userUtils).checkAccessToUser(1L);
+        verify(paymentCardRepository).activatePaymentCard(1L);
     }
 
     @Test
     void shouldThrowPaymentCardNotFoundExceptionWhenActivatingNonExistentCard() {
-        Long paymentCardId = 999L;
+        when(paymentCardRepository.findById(999L)).thenReturn(Optional.empty());
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(false);
+        assertThrows(PaymentCardNotFoundException.class, () -> {
+            paymentCardService.activatePaymentCard(999L);
+        });
 
-        assertThrows(PaymentCardNotFoundException.class, () -> paymentCardService.activatePaymentCard(paymentCardId));
-
-        verify(paymentCardRepository).existsById(paymentCardId);
+        verify(paymentCardRepository).findById(999L);
         verify(paymentCardRepository, never()).activatePaymentCard(any());
     }
 
     @Test
     void shouldDeactivatePaymentCardSuccessfully() {
-        Long paymentCardId = 1L;
+        when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
+        doNothing().when(userUtils).checkAccessToUser(1L);
+        when(paymentCardRepository.deactivatePaymentCard(1L)).thenReturn(1);
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(true);
+        paymentCardService.deactivatePaymentCard(1L);
 
-        paymentCardService.deactivatePaymentCard(paymentCardId);
-
-        verify(paymentCardRepository).existsById(paymentCardId);
-        verify(paymentCardRepository).deactivatePaymentCard(paymentCardId);
+        verify(paymentCardRepository).findById(1L);
+        verify(userUtils).checkAccessToUser(1L);
+        verify(paymentCardRepository).deactivatePaymentCard(1L);
     }
 
     @Test
     void shouldThrowPaymentCardNotFoundExceptionWhenDeactivatingNonExistentCard() {
-        Long paymentCardId = 999L;
+        when(paymentCardRepository.findById(999L)).thenReturn(Optional.empty());
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(false);
+        assertThrows(PaymentCardNotFoundException.class, () -> {
+            paymentCardService.deactivatePaymentCard(999L);
+        });
 
-        assertThrows(PaymentCardNotFoundException.class, () -> paymentCardService.deactivatePaymentCard(paymentCardId));
-
-        verify(paymentCardRepository).existsById(paymentCardId);
+        verify(paymentCardRepository).findById(999L);
         verify(paymentCardRepository, never()).deactivatePaymentCard(any());
     }
 
     @Test
     void shouldUpdatePaymentCardSuccessfully() {
-        Long paymentCardId = 1L;
-        Long userId = 1L;
-        PaymentCardRequest request = new PaymentCardRequest();
-        request.setUserId(userId);
+        when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
+        doNothing().when(userUtils).checkAccessToUser(1L);
 
-        User user = new User();
-        user.setId(userId);
+        paymentCardService.updatePaymentCardById(1L, paymentCardRequest);
 
-        PaymentCard paymentCard = new PaymentCard();
-
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(paymentCardRequestMapper.toPaymentCard(request, user)).thenReturn(paymentCard);
-        when(paymentCardRepository.updatePaymentCard(paymentCard, paymentCardId)).thenReturn(1);
-
-        paymentCardService.updatePaymentCardById(paymentCardId, request);
-
-        verify(paymentCardRepository).existsById(paymentCardId);
-        verify(userRepository).findById(userId);
-        verify(paymentCardRequestMapper).toPaymentCard(request, user);
-        verify(paymentCardRepository).updatePaymentCard(paymentCard, paymentCardId);
+        verify(paymentCardRepository).findById(1L);
+        verify(userUtils).checkAccessToUser(1L);
+        assertEquals(paymentCardRequest.getNumber(), paymentCard.getNumber());
+        assertEquals(paymentCardRequest.getHolder(), paymentCard.getHolder());
     }
 
     @Test
     void shouldThrowPaymentCardNotFoundExceptionWhenUpdatingNonExistentCard() {
-        Long paymentCardId = 999L;
-        PaymentCardRequest request = new PaymentCardRequest();
-        request.setUserId(1L);
+        when(paymentCardRepository.findById(999L)).thenReturn(Optional.empty());
 
-        when(paymentCardRepository.existsById(paymentCardId)).thenReturn(false);
+        assertThrows(PaymentCardNotFoundException.class, () -> {
+            paymentCardService.updatePaymentCardById(999L, paymentCardRequest);
+        });
 
-        assertThrows(PaymentCardNotFoundException.class, () -> paymentCardService.updatePaymentCardById(paymentCardId, request));
-
-        verify(paymentCardRepository).existsById(paymentCardId);
-        verify(userRepository, never()).findById(any());
-        verify(paymentCardRequestMapper, never()).toPaymentCard(any(), any());
-        verify(paymentCardRepository, never()).updatePaymentCard(any(), any());
+        verify(paymentCardRepository).findById(999L);
+        verify(paymentCardRepository, never()).save(any());
     }
+
+
+    @Test
+    void shouldReturnPaymentCardsByUserId() {
+        when(paymentCardRepository.findPaymentCardByUserId(1L)).thenReturn(java.util.List.of(paymentCard));
+        when(paymentCardResponseMapper.toPaymentCardResponse(paymentCard)).thenReturn(paymentCardResponse);
+        doNothing().when(userUtils).checkAccessToUser(1L);
+
+        var result = paymentCardService.getPaymentCardsByUserId(1L);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(paymentCardRepository, times(1)).findPaymentCardByUserId(1L);
+    }
+
 }
