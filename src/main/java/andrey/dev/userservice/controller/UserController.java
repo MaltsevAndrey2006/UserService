@@ -1,7 +1,10 @@
 package andrey.dev.userservice.controller;
 
+import andrey.dev.userservice.entity.dto.TempUserRequest;
+import andrey.dev.userservice.entity.dto.TempUserResponse;
 import andrey.dev.userservice.entity.dto.UserRequest;
 import andrey.dev.userservice.entity.dto.UserResponse;
+import andrey.dev.userservice.service.TempUserService;
 import andrey.dev.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +18,10 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("api/v1/users")
 public class UserController {
+
     private final UserService userService;
+    private final TempUserService tempUserService;
+
 
     @GetMapping
     public ResponseEntity<Page<UserResponse>> getAllUsers(Pageable pageable,
@@ -57,4 +63,21 @@ public class UserController {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/temp")
+    public ResponseEntity<TempUserResponse> createTempUser(@RequestBody @Valid TempUserRequest tempUserRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(tempUserService.save(tempUserRequest));
+    }
+
+    @PostMapping("/temp/{email}")
+    public ResponseEntity<UserResponse> creatUserFromTemp(@PathVariable String email) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.saveUserFromTemp(email));
+    }
+
+    @DeleteMapping("/temp")
+    public ResponseEntity<Void> deleteTempUser(@RequestParam String email) {
+        tempUserService.deleteByEmail(email);
+        return ResponseEntity.noContent().build();
+    }
+
 }

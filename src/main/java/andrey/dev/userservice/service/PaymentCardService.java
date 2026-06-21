@@ -23,7 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 
 @Service
@@ -35,7 +35,7 @@ public class PaymentCardService {
     private final UserRepository userRepository;
     private final UserUtils userUtils;
 
-    @CachePut(value = "users", key = "#result.userId")
+    @CachePut(value = "paymentCard", key = "#result.id")
     public PaymentCardResponse savePaymentCard(PaymentCardRequest paymentCardRequest) {
         User user = userRepository.findById(paymentCardRequest.getUserId())
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + paymentCardRequest.getUserId()));
@@ -56,7 +56,7 @@ public class PaymentCardService {
         return paymentCardRepository.findAll(pageable).map(paymentCardResponseMapper::toPaymentCardResponse);
     }
 
-    @Cacheable(value = "paymentCards", key = "#id")
+    @Cacheable(value = "paymentCard", key = "#id")
     public PaymentCardResponse getPaymentCardById(Long id) {
         return paymentCardRepository.findById(id)
                 .map(paymentCardResponseMapper::toPaymentCardResponse)
@@ -65,7 +65,7 @@ public class PaymentCardService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "paymentCards", key = "#id")
+            @CacheEvict(value = "paymentCard", key = "#id")
     })
     public void deletePaymentCardById(Long id) {
         PaymentCard paymentCard = paymentCardRepository.findById(id)
@@ -78,7 +78,7 @@ public class PaymentCardService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "paymentCards", key = "#id")
+            @CacheEvict(value = "paymentCard", key = "#id")
     })
     public void updatePaymentCardById(Long id, PaymentCardRequest paymentCardRequest) {
         PaymentCard paymentCard = paymentCardRepository.findById(id)
@@ -93,40 +93,36 @@ public class PaymentCardService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "users", key = "#result.userId"),
-            @CacheEvict(value = "paymentCards", key = "#id")
+            @CacheEvict(value = "paymentCard", key = "#id")
     })
     public PaymentCardResponse activatePaymentCard(Long id) {
         PaymentCard paymentCard = paymentCardRepository.findById(id)
                 .orElseThrow(() -> new PaymentCardNotFoundException("Payment card not found with id: " + id));
 
         userUtils.checkAccessToUser(paymentCard.getUser().getId());
-
-        paymentCardRepository.activatePaymentCard(id);
+        paymentCard.setActive(true);
         return paymentCardResponseMapper.toPaymentCardResponse(paymentCard);
     }
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "users", key = "#result.userId"),
-            @CacheEvict(value = "paymentCards", key = "#id")
+            @CacheEvict(value = "paymentCard", key = "#id")
     })
     public PaymentCardResponse deactivatePaymentCard(Long id) {
         PaymentCard paymentCard = paymentCardRepository.findById(id)
                 .orElseThrow(() -> new PaymentCardNotFoundException("Payment card not found with id: " + id));
 
         userUtils.checkAccessToUser(paymentCard.getUser().getId());
-
-        paymentCardRepository.deactivatePaymentCard(id);
+        paymentCard.setActive(false);
         return paymentCardResponseMapper.toPaymentCardResponse(paymentCard);
     }
 
-    @Cacheable(value = "users", key = "#userId")
-    public List<PaymentCardResponse> getPaymentCardsByUserId(Long userId) {
+    @Cacheable(value = "paymentCards", key = "#userId")
+    public ArrayList<PaymentCardResponse> getPaymentCardsByUserId(Long userId) {
         userUtils.checkAccessToUser(userId);
 
-        return paymentCardRepository.findPaymentCardByUserId(userId).stream()
+        return new ArrayList<>(paymentCardRepository.findPaymentCardByUserId(userId).stream()
                 .map(paymentCardResponseMapper::toPaymentCardResponse)
-                .toList();
+                .toList());
     }
 }

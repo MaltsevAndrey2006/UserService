@@ -16,11 +16,19 @@ public class UserUtils {
         }
 
         Object principal = authentication.getPrincipal();
+
         if (principal instanceof Long) {
             return (Long) principal;
         }
 
-        throw new SecurityException("Invalid principal type");
+        if (principal instanceof String) {
+            try {
+                return Long.parseLong((String) principal);
+            } catch (NumberFormatException e) {
+                throw new SecurityException("Invalid principal format");
+            }
+        }
+        throw new SecurityException("Invalid principal format");
     }
 
     public String getCurrentUserRole() {

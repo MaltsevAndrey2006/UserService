@@ -43,6 +43,9 @@ class UserServiceTest {
     @Mock
     private UserUtils userUtils;
 
+    @Mock
+    private TempUserService tempUserService;
+
     @InjectMocks
     private UserService userService;
 
@@ -149,28 +152,27 @@ class UserServiceTest {
 
     @Test
     void shouldDeleteUserSuccessfully() {
-        when(userRepository.existsById(1L)).thenReturn(true);
         doNothing().when(userUtils).checkAccessToUser(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doNothing().when(userRepository).deleteById(1L);
+        doNothing().when(tempUserService).deleteByEmail(user.getEmail());
+
 
         userService.deleteUser(1L);
 
         verify(userUtils).checkAccessToUser(1L);
-        verify(userRepository).existsById(1L);
         verify(userRepository).deleteById(1L);
     }
 
     @Test
     void shouldThrowExceptionWhenDeletingNonExistentUser() {
-        when(userRepository.existsById(999L)).thenReturn(false);
         doNothing().when(userUtils).checkAccessToUser(999L);
-
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
         assertThrows(UserNotFoundException.class, () -> {
             userService.deleteUser(999L);
         });
 
         verify(userUtils).checkAccessToUser(999L);
-        verify(userRepository).existsById(999L);
         verify(userRepository, never()).deleteById(any());
     }
 

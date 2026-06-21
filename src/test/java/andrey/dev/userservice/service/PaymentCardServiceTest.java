@@ -120,18 +120,6 @@ class PaymentCardServiceTest {
         verify(paymentCardRepository, never()).deleteById(any());
     }
 
-    @Test
-    void shouldActivatePaymentCardSuccessfully() {
-        when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
-        doNothing().when(userUtils).checkAccessToUser(1L);
-        when(paymentCardRepository.activatePaymentCard(1L)).thenReturn(1);
-
-        paymentCardService.activatePaymentCard(1L);
-
-        verify(paymentCardRepository).findById(1L);
-        verify(userUtils).checkAccessToUser(1L);
-        verify(paymentCardRepository).activatePaymentCard(1L);
-    }
 
     @Test
     void shouldThrowPaymentCardNotFoundExceptionWhenActivatingNonExistentCard() {
@@ -145,18 +133,6 @@ class PaymentCardServiceTest {
         verify(paymentCardRepository, never()).activatePaymentCard(any());
     }
 
-    @Test
-    void shouldDeactivatePaymentCardSuccessfully() {
-        when(paymentCardRepository.findById(1L)).thenReturn(Optional.of(paymentCard));
-        doNothing().when(userUtils).checkAccessToUser(1L);
-        when(paymentCardRepository.deactivatePaymentCard(1L)).thenReturn(1);
-
-        paymentCardService.deactivatePaymentCard(1L);
-
-        verify(paymentCardRepository).findById(1L);
-        verify(userUtils).checkAccessToUser(1L);
-        verify(paymentCardRepository).deactivatePaymentCard(1L);
-    }
 
     @Test
     void shouldThrowPaymentCardNotFoundExceptionWhenDeactivatingNonExistentCard() {

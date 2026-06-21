@@ -6,5 +6,6 @@
 
     <include  file="db/changelog/changelogs/create_users_entity.sql"/>
     <include  file="db/changelog/changelogs/create_payment_cards_entity.sql"/>
+    <include  file="db/changelog/changelogs/create_users_temp_entity.sql"/>
 
 </databaseChangeLog>

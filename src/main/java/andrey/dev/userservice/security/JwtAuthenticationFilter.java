@@ -23,35 +23,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
+    private static final List<String> PUBLIC_PATHS = List.of(
+            "/api/v1/users/temp",
+            "/api/v1/users",
+            "/api/v1/users/temp"
+    );
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String path = request.getRequestURI();
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
         String token = extractToken(request);
 
-        if (token == null || !jwtService.validateToken(token)) {
-            log.warn("Invalid JWT token for request: {}", path);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
-            return;
+        if (token != null && jwtService.validateToken(token)) {
+
+            Long userId = jwtService.getUserIdFromToken(token);
+            String role = jwtService.getRoleFromToken(token);
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
         }
-
-        Long userId = jwtService.getUserIdFromToken(token);
-        String role = jwtService.getRoleFromToken(token);
-
-        log.debug("Authenticated user: userId={}, role={}, path={}", userId, role, path);
-
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         filterChain.doFilter(request, response);
     }
 
+    private boolean isPublicEndpoint(String path, String method) {
+        if (method.equals("POST") && path.equals("/api/v1/users")) {
+            return true;
+        }
+
+        if (method.equals("POST") && path.startsWith("/api/v1/users/temp")) {
+            return true;
+        }
+        if (method.equals("GET") && path.startsWith("/api/v1/users/temp")) {
+            return true;
+        }
+
+        if (method.equals("DELETE") && path.startsWith("/api/v1/users/temp")) {
+            return true;
+        }
+
+        return false;
+    }
 
     private String extractToken(HttpServletRequest request) {
         String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
