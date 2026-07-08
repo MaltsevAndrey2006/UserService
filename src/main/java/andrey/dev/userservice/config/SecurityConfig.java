@@ -29,6 +29,9 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users/temp").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users/temp/**").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users/temp").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/users/activate/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/users/deactivate/**").hasRole("ADMIN")

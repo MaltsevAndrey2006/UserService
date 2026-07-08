@@ -1,10 +1,12 @@
 package andrey.dev.userservice.service;
 
 import andrey.dev.userservice.entity.User;
+import andrey.dev.userservice.entity.dto.TempUserResponse;
 import andrey.dev.userservice.entity.dto.UserRequest;
 import andrey.dev.userservice.entity.dto.UserResponse;
 import andrey.dev.userservice.exception.exceptions.UserCreatingException;
 import andrey.dev.userservice.exception.exceptions.UserNotFoundException;
+import andrey.dev.userservice.mapper.TempUserToUserMapper;
 import andrey.dev.userservice.mapper.UserRequestMapper;
 import andrey.dev.userservice.mapper.UserResponseMapper;
 import andrey.dev.userservice.repository.UserRepository;
@@ -32,9 +34,13 @@ public class UserService {
     private final UserRequestMapper userRequestMapper;
     private final UserResponseMapper userResponseMapper;
     private final UserUtils userUtils;
+    private final TempUserService tempUserService;
+    private final TempUserToUserMapper tempUserToUserMapper;
+
 
     @CachePut(value = "users", key = "#result.id")
     public UserResponse saveUser(UserRequest userRequest) {
+
         return Optional.ofNullable(userRequest)
                 .map(userRequestMapper::toUser)
                 .map(userRepository::save)
@@ -102,12 +108,18 @@ public class UserService {
     @CacheEvict(value = "users", key = "#id")
     public void deleteUser(Long id) {
         userUtils.checkAccessToUser(id);
-        if (!userRepository.existsById(id)) {
-            throw new UserNotFoundException("User not found with id: " + id);
-        }
+
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
 
         userRepository.deleteById(id);
+        tempUserService.deleteByEmail(user.getEmail());
     }
 
+    @Transactional
+    public UserResponse saveUserFromTemp(String email) {
+        TempUserResponse tempUser = tempUserService.findByEmail(email);
+
+        return userResponseMapper.toUserResponse(userRepository.save(tempUserToUserMapper.toUser(tempUser)));
+    }
 
 }

@@ -1,7 +1,7 @@
 services:
   user_db:
     image: postgres:15
-    container_name: postgres_user_db
+    container_name: postgres-user-db
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
@@ -19,7 +19,7 @@ services:
 
   cache:
     image: redis:7-alpine
-    container_name: redis_user_cache
+    container_name: redis-user-cache
     restart: always
     ports:
       - "${CACHE_PORT}:6379"
@@ -33,7 +33,7 @@ services:
 
   app:
     build: .
-    container_name: user_service_app
+    container_name: user-service-app
     depends_on:
       user_db:
         condition: service_healthy
